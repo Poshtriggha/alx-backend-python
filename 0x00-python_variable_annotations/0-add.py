@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
+"""A function annotations that adds to float numbers
 """
-Module to define a function.
-"""
+
 
 def add(a: float, b: float) -> float:
-    """
-    Function to add two floats.
-
-    """
+    """This is type-annotated function that adds two float types
+    and gives it's sum"""
     return a + b
-
-if __name__ == "__main__":
-    add(1.11, 2.22)
