@@ -1,56 +1,78 @@
 #!/usr/bin/env python3
-"""AAAA"""
-from typing import (
-    List,
-    Dict,
-)
 
-from utils import (
-    get_json,
-    access_nested_map,
-    memoize,
-)
+"""
+TestGithubOrgClient module
+"""
+
+import unittest
+from parameterized import parameterized_class
+from unittest.mock import patch
+from fixtures import TEST_ORG_PAYLOAD, TEST_REPOS_PAYLOAD, EXPECTED_REPOS, APACHE2_REPOS
+from client import GithubOrgClient
 
 
-class GithubOrgClient:
-    """AAAA"""
-    ORG_URL = "https://api.github.com/orgs/{org}"
+@parameterized_class(('org_payload', 'repos_payload', 'expected_repos', 'apache2_repos'), [
+    (TEST_ORG_PAYLOAD, TEST_REPOS_PAYLOAD, EXPECTED_REPOS, APACHE2_REPOS)
+])
+class TestIntegrationGithubOrgClient(unittest.TestCase):
+    """
+    TestIntegrationGithubOrgClient class
+    """
 
-    def __init__(self, org_name: str) -> None:
-        """AAAA"""
-        self._org_name = org_name
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up class method
+        """
+        cls.get_patcher = patch('requests.get')
+        cls.mock_get = cls.get_patcher.start()
 
-    @memoize
-    def org(self) -> Dict:
-        """AAAA"""
-        return get_json(self.ORG_URL.format(org=self._org_name))
-
-    @property
-    def _public_repos_url(self) -> str:
-        """AAAA"""
-        return self.org["repos_url"]
-
-    @memoize
-    def repos_payload(self) -> Dict:
-        """AAAA"""
-        return get_json(self._public_repos_url)
-
-    def public_repos(self, license: str = None) -> List[str]:
-        """AAAA"""
-        json_payload = self.repos_payload
-        public_repos = [
-            repo["name"] for repo in json_payload
-            if license is None or self.has_license(repo, license)
+        cls.mock_get.side_effect = [
+            MockResponse(cls.org_payload),
+            MockResponse(cls.repos_payload)
         ]
 
-        return public_repos
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Tear down class method
+        """
+        cls.get_patcher.stop()
 
-    @staticmethod
-    def has_license(repo: Dict[str, Dict], license_key: str) -> bool:
-        """AAAA"""
-        assert license_key is not None, "license_key cannot be None"
-        try:
-            has_license = access_nested_map(repo, ("license", "key")) == license_key
-        except KeyError:
-            return False
-        return has_license
+    def test_public_repos(self):
+        """
+        Test public_repos method
+        """
+        github_client = GithubOrgClient("testorg")
+        repos = github_client.public_repos()
+        self.assertEqual(repos, self.expected_repos)
+
+    def test_public_repos_with_license(self):
+        """
+        Test public_repos method with a specific license
+        """
+        github_client = GithubOrgClient("testorg")
+        repos = github_client.public_repos(license="apache-2.0")
+        self.assertEqual(repos, self.apache2_repos)
+
+
+class MockResponse:
+    """
+    MockResponse class
+    """
+
+    def __init__(self, payload):
+        """
+        Initialize MockResponse
+        """
+        self.payload = payload
+
+    def json(self):
+        """
+        Return JSON payload
+        """
+        return self.payload
+
+
+if __name__ == '__main__':
+    unittest.main()
